@@ -28,7 +28,10 @@ export default defineConfig(({ mode }) => {
     };
   }
 
+  // Relative base so the built site works from any path, including the
+  // GitHub Pages project subpath (/ASCII-Visualizer/).
   return {
+    base: "./",
     build: {
       outDir: "dist",
       emptyOutDir: true,
