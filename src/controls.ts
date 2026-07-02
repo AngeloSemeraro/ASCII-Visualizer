@@ -1,5 +1,5 @@
 // Plain-DOM control panel: start/stop, camera selection, Save PNG, and a row of
-// togglable filter chips (palette cycler, ghost/motion, CRT, rainbow). Returns a
+// togglable filter chips (palette, ghost/motion, CRT, slit-scan, glitch). Returns a
 // handle so the caller can push status/errors and refresh the camera list.
 
 import { AsciiVisualizer } from "./AsciiVisualizer";
@@ -94,9 +94,10 @@ export function createControls(engine: AsciiVisualizer): ControlsHandle {
 
   const ghostChip = toggleChip("Ghost", (on) => engine.setOptions({ ghost: on }));
   const crtChip = toggleChip("CRT", (on) => engine.setOptions({ crt: on }));
-  const rainbowChip = toggleChip("Rainbow", (on) => engine.setOptions({ rainbow: on }));
+  const slitChip = toggleChip("Slit-scan", (on) => engine.setOptions({ slitScan: on }));
+  const glitchChip = toggleChip("Glitch", (on) => engine.setOptions({ glitch: on }));
 
-  filters.append(paletteBtn, ghostChip, crtChip, rainbowChip);
+  filters.append(paletteBtn, ghostChip, crtChip, slitChip, glitchChip);
 
   const status = el("div", "asciiv-status");
   status.setAttribute("role", "status");

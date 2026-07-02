@@ -50,14 +50,16 @@ export interface AsciiVisualizerOptions {
   trailBlur?: number;
   /** Opacity of the crisp current frame drawn over the dreamy trail, 0..1. */
   trailSharp?: number;
-  /** Rainbow filter: animate glyph color through the hue wheel over time. */
-  rainbow?: boolean;
   /** Ghost/motion filter: only render cells that changed since the last frame. */
   ghost?: boolean;
   /** Motion sensitivity for ghost mode (0..255 luminance delta). Lower = more sensitive. */
   ghostThreshold?: number;
   /** CRT filter: overlay scanlines + vignette for a retro-monitor look. */
   crt?: boolean;
+  /** Slit-scan filter: sample each row from a different moment in time. */
+  slitScan?: boolean;
+  /** Glitch filter: occasional datamosh bursts (row tears + channel ghosting). */
+  glitch?: boolean;
   /** Background color of the display canvas. */
   background?: string;
   /** Foreground color used in mono / inverted modes. */
@@ -89,10 +91,11 @@ const DEFAULTS: Required<
   trail: 0.94,
   trailBlur: 2.5,
   trailSharp: 0.35,
-  rainbow: false,
   ghost: false,
   ghostThreshold: 16,
   crt: false,
+  slitScan: false,
+  glitch: false,
   background: "#0b0e14",
   foreground: "#e6edf3",
   autostart: false,
@@ -100,6 +103,9 @@ const DEFAULTS: Required<
 
 // Monospace glyphs are ~twice as tall as they are wide.
 const GLYPH_ASPECT = 0.5;
+
+// Slit-scan spreads the visible rows across this many past frames.
+const SLIT_MAX = 40;
 
 export class AsciiVisualizer {
   private container: HTMLElement;
@@ -135,6 +141,18 @@ export class AsciiVisualizer {
   private prevLuma: Float32Array | null = null;
   private scanlinePattern: CanvasPattern | null = null;
 
+  // Slit-scan history: a ring of recent sampled frames (columns x rows).
+  private frameHistory: ImageData[] = [];
+  private histW = 0;
+  private histH = 0;
+
+  // Glitch state: a scratch snapshot + the active burst description.
+  private glitchBuf: HTMLCanvasElement;
+  private glitchBufCtx: CanvasRenderingContext2D;
+  private glitchUntil = 0;
+  private glitchBands: { y: number; h: number; dx: number }[] = [];
+  private glitchRgb = 0;
+
   constructor(container: HTMLElement, options: AsciiVisualizerOptions = {}) {
     this.container = container;
     this.opts = { ...DEFAULTS, ...options };
@@ -166,6 +184,11 @@ export class AsciiVisualizer {
     const tctx = this.trail.getContext("2d");
     if (!tctx) throw new Error("2D canvas context unavailable");
     this.trailCtx = tctx;
+
+    this.glitchBuf = document.createElement("canvas");
+    const gctx = this.glitchBuf.getContext("2d");
+    if (!gctx) throw new Error("2D canvas context unavailable");
+    this.glitchBufCtx = gctx;
   }
 
   /** Attach the display canvas + hidden video to the container. */
@@ -218,6 +241,8 @@ export class AsciiVisualizer {
     this.running = true;
     this.exposureGain = 1;
     this.prevLuma = null;
+    this.frameHistory = [];
+    this.glitchUntil = 0;
     this.clearTrail();
     this.opts.onStateChange?.(true);
     this.loop();
@@ -328,6 +353,20 @@ export class AsciiVisualizer {
     const image = this.samplerCtx.getImageData(0, 0, columns, rows);
     const charset = resolveCharset(this.opts.charset);
 
+    // Slit-scan keeps a ring of recent frames so each row can be sampled from a
+    // different point in time. Only maintained while the filter is on.
+    if (this.opts.slitScan) {
+      if (image.width !== this.histW || image.height !== this.histH) {
+        this.frameHistory = [];
+        this.histW = image.width;
+        this.histH = image.height;
+      }
+      this.frameHistory.push(image);
+      if (this.frameHistory.length > SLIT_MAX + 1) this.frameHistory.shift();
+    } else if (this.frameHistory.length) {
+      this.frameHistory = [];
+    }
+
     // 2) Auto-exposure: nudge the gain so the mean rendered brightness drifts
     //    toward the target, smoothed over frames to avoid flicker.
     this.updateExposure(image);
@@ -386,16 +425,23 @@ export class AsciiVisualizer {
     const prev = this.prevLuma;
     const motionThreshold = this.opts.ghostThreshold;
 
-    const rainbow = this.opts.rainbow;
-    const now = performance.now();
+    // Slit-scan: pick a per-row source frame from the history ring.
+    const slit = this.opts.slitScan && this.frameHistory.length > 0;
+    const histLen = this.frameHistory.length;
+    const rowSpan = Math.max(1, rows - 1);
 
     for (let y = 0; y < height && y < rows; y++) {
+      let srcData = data;
+      if (slit) {
+        const delay = Math.min(histLen - 1, Math.round((y / rowSpan) * SLIT_MAX));
+        srcData = this.frameHistory[histLen - 1 - delay].data;
+      }
       for (let x = 0; x < width && x < columns; x++) {
         const idx = y * width + x;
         const i = idx * 4;
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
+        const r = srcData[i];
+        const g = srcData[i + 1];
+        const b = srcData[i + 2];
         const v = pixelValue(r, g, b, gain, this.opts.brightness, this.opts.contrast, this.opts.invert);
 
         let ch = unit
@@ -409,10 +455,7 @@ export class AsciiVisualizer {
         }
         if (ch === " ") continue;
 
-        if (rainbow) {
-          const hue = (now * 0.06 + x * 3 + y * 1.5) % 360;
-          fctx.fillStyle = `hsl(${hue}, 100%, 60%)`;
-        } else if (this.opts.colorMode === "color") {
+        if (this.opts.colorMode === "color") {
           fctx.fillStyle = `rgb(${r},${g},${b})`;
         } else if (inverted) {
           fctx.fillStyle = this.opts.background;
@@ -471,6 +514,71 @@ export class AsciiVisualizer {
     }
 
     if (this.opts.crt) this.applyCrt(ctx, pxWidth, pxHeight);
+    if (this.opts.glitch) this.applyGlitch(ctx, pxWidth, pxHeight);
+  }
+
+  /**
+   * Glitch filter: sporadic datamosh bursts. Between bursts nothing happens;
+   * a burst tears a few horizontal bands sideways and ghosts a color-split copy
+   * for a handful of frames, then subsides.
+   */
+  private applyGlitch(ctx: CanvasRenderingContext2D, pxW: number, pxH: number): void {
+    const now = performance.now();
+
+    if (now >= this.glitchUntil) {
+      // Idle: occasionally kick off a new burst.
+      if (Math.random() >= 0.008) return;
+      this.startGlitchBurst(now);
+    }
+    // Generate the torn bands once we know the display dimensions.
+    if (this.glitchBands.length === 0) this.buildGlitchBands(pxW, pxH);
+
+    // Snapshot the composited frame, then re-lay torn bands from it.
+    const gctx = this.glitchBufCtx;
+    gctx.setTransform(1, 0, 0, 1, 0, 0);
+    gctx.clearRect(0, 0, pxW, pxH);
+    gctx.drawImage(this.display, 0, 0);
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.filter = "none";
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+    for (const band of this.glitchBands) {
+      // Three copies (dx, dx±width) wrap the shifted band across the full row.
+      ctx.drawImage(this.glitchBuf, 0, band.y, pxW, band.h, band.dx, band.y, pxW, band.h);
+      ctx.drawImage(this.glitchBuf, 0, band.y, pxW, band.h, band.dx - pxW, band.y, pxW, band.h);
+      ctx.drawImage(this.glitchBuf, 0, band.y, pxW, band.h, band.dx + pxW, band.y, pxW, band.h);
+    }
+    if (this.glitchRgb) {
+      ctx.globalCompositeOperation = "lighten";
+      ctx.globalAlpha = 0.5;
+      ctx.drawImage(this.glitchBuf, this.glitchRgb, 0);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+    }
+  }
+
+  private startGlitchBurst(now: number): void {
+    this.glitchUntil = now + 80 + Math.random() * 160;
+    this.glitchBands = [];
+    this.glitchRgb = Math.random() < 0.6 ? (((Math.random() * 2 - 1) * 10) | 0) : 0;
+  }
+
+  private buildGlitchBands(pxW: number, pxH: number): void {
+    const bands = 3 + ((Math.random() * 4) | 0);
+    this.glitchBands = [];
+    for (let k = 0; k < bands; k++) {
+      const h = Math.max(2, ((0.02 + Math.random() * 0.08) * pxH) | 0);
+      const y = (Math.random() * Math.max(1, pxH - h)) | 0;
+      const dx = ((Math.random() * 2 - 1) * pxW * 0.12) | 0;
+      this.glitchBands.push({ y, h, dx });
+    }
+  }
+
+  /** Force a glitch burst immediately (e.g. on a button press or a beat). */
+  pulseGlitch(durationMs = 180): void {
+    this.startGlitchBurst(performance.now());
+    this.glitchUntil = performance.now() + durationMs;
   }
 
   /** Overlay scanlines + a vignette for a retro CRT-monitor look. */
@@ -519,6 +627,8 @@ export class AsciiVisualizer {
     this.frame.height = pxHeight;
     this.trail.width = pxWidth;
     this.trail.height = pxHeight;
+    this.glitchBuf.width = pxWidth;
+    this.glitchBuf.height = pxHeight;
     this.layerW = pxWidth;
     this.layerH = pxHeight;
     this.clearTrail();

@@ -57,7 +57,11 @@ Togglable, stackable effect chips:
 - **Ghost** — motion-only rendering via frame-differencing; still areas vanish and
   only movement lights up (mesmerising with the trail). Tune with `ghostThreshold`.
 - **CRT** — scanlines + vignette for a retro-monitor look.
-- **Rainbow** — animates the glyph color through the hue wheel over time.
+- **Slit-scan** — samples each row from a different moment in time (a ring of
+  recent frames), smearing motion into a time-warped portrait.
+- **Glitch** — sporadic datamosh bursts: horizontal band tears + a color-split
+  ghost for a few frames, then it subsides. Trigger one on demand with
+  `engine.pulseGlitch()`.
 
 ### Default look
 
@@ -172,9 +176,10 @@ window.AsciiVisualizer.createVisualizer(document.getElementById("host"), {
 | `data-mirror`     | Mirror horizontally                           |
 | `data-autoexposure` | Adapt exposure to lighting (`true`/`false`) |
 | `data-exposuretarget` | Target mean brightness (0..255)           |
-| `data-rainbow`    | Rainbow hue-cycle filter (`true`/`false`)     |
 | `data-ghost`      | Motion-only ghost filter (`true`/`false`)     |
 | `data-crt`        | CRT scanline + vignette filter (`true`/`false`) |
+| `data-slitscan`   | Slit-scan time-warp filter (`true`/`false`)   |
+| `data-glitch`     | Glitch-burst filter (`true`/`false`)          |
 | `data-trail`      | Long-exposure persistence (0..1, 0 = off)     |
 | `data-trailblur`  | Trail blur radius (CSS px)                     |
 | `data-trailsharp` | Crisp overlay opacity (0..1)                  |
