@@ -1,0 +1,127 @@
+# ASCII Visualizer
+
+A real-time **webcam → ASCII art** filter that runs entirely in the browser.
+No server, no uploads, no runtime dependencies — the camera stream is sampled
+and rendered locally and **never leaves your device**.
+
+Built with **Vite + TypeScript**, framework-free (no React).
+
+![standalone](https://img.shields.io/badge/build-vite%20%2B%20typescript-blue)
+
+## How it works
+
+1. `getUserMedia` provides a `MediaStream` attached to a hidden `<video>`.
+2. Each animation frame the video is drawn into a tiny offscreen canvas sized to
+   the target **column count** (rows are derived from the video aspect ratio,
+   corrected by the ~0.5 monospace glyph ratio).
+3. For every cell we compute Rec.601 **luminance**, apply brightness / contrast /
+   invert, then map it onto a **character ramp**.
+4. The characters are painted onto a display canvas — optionally **tinted** with
+   the source pixel color.
+
+Everything is deterministic and lives in small, testable modules.
+
+## Getting started
+
+```bash
+npm install
+npm run dev        # start the dev server
+```
+
+Then open the printed URL and click **Start** to grant camera access.
+
+### Scripts
+
+| Script              | Description                                        |
+| ------------------- | -------------------------------------------------- |
+| `npm run dev`       | Vite dev server                                    |
+| `npm run typecheck` | `tsc --noEmit`                                      |
+| `npm run build`     | Typecheck + standalone build → `dist/`             |
+| `npm run build:embed` | Single self-mounting IIFE → `dist-embed/`        |
+| `npm run build:all` | Both builds                                        |
+| `npm run preview`   | Preview the standalone build                       |
+
+## Controls
+
+Start / stop, camera selection, resolution (columns), charset, color mode
+(color / mono / inverted), contrast, brightness, invert and mirror toggles,
+**Save PNG**, and **Copy text**.
+
+### Charsets
+
+`standard`, `detailed`, `blocks`, `minimal`, `binary` — each an ordered ramp
+from darkest to lightest.
+
+## Embedding
+
+Build the embed bundle and drop the single file onto any page:
+
+```bash
+npm run build:embed
+```
+
+```html
+<div
+  data-ascii-visualizer
+  data-columns="120"
+  data-color="color"
+  data-preset="standard"
+  data-controls="true"
+  data-autostart="false"
+></div>
+<script src="ascii-visualizer.js"></script>
+```
+
+The script injects its own scoped CSS and auto-mounts every
+`[data-ascii-visualizer]` element. You can also mount programmatically:
+
+```js
+window.AsciiVisualizer.createVisualizer(document.getElementById("host"), {
+  columns: 140,
+  colorMode: "mono",
+});
+```
+
+### Supported `data-*` attributes
+
+| Attribute         | Meaning                                       |
+| ----------------- | --------------------------------------------- |
+| `data-columns`    | Target column count                           |
+| `data-color`      | `color` \| `mono` \| `inverted`               |
+| `data-preset`     | Charset name                                  |
+| `data-controls`   | Show the control panel (`true`/`false`)       |
+| `data-autostart`  | Start the camera on load                      |
+| `data-background` | Display background color                       |
+| `data-foreground` | Foreground color (mono / inverted)            |
+| `data-height`     | Min stage height (CSS)                         |
+| `data-maxwidth`   | Max widget width (CSS)                         |
+| `data-contrast`   | Contrast multiplier                           |
+| `data-brightness` | Brightness offset                             |
+| `data-invert`     | Invert luminance                              |
+| `data-mirror`     | Mirror horizontally                           |
+
+## WordPress plugin
+
+A ready-to-use plugin lives in [`wordpress-plugin/ascii-visualizer`](wordpress-plugin/ascii-visualizer).
+It registers an `[ascii_visualizer]` shortcode that emits a
+`data-ascii-visualizer` element and enqueues the prebuilt embed bundle:
+
+```
+[ascii_visualizer columns="120" color="color" preset="standard" controls="true"]
+```
+
+Rebuild its bundled asset after changing the source:
+
+```bash
+npm run build:embed
+cp dist-embed/ascii-visualizer.js wordpress-plugin/ascii-visualizer/assets/ascii-visualizer.js
+```
+
+## Privacy
+
+The camera feed is processed **entirely in your browser**. No frames, no
+snapshots, and no ASCII output are ever sent anywhere.
+
+## License
+
+MIT © Angelo Semeraro

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ASCII Visualizer — Webcam → ASCII Art</title>
+    <meta
+      name="description"
+      content="Real-time webcam to ASCII art filter. Runs entirely in your browser — the camera stream never leaves your device."
+    />
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <h1>ASCII Visualizer</h1>
+        <p>
+          A real-time webcam → ASCII art filter. Everything runs client-side —
+          your camera stream never leaves the browser.
+        </p>
+      </header>
+      <div id="app"></div>
+      <footer class="page-footer">
+        <p>MIT Licensed · Angelo Semeraro</p>
+      </footer>
+    </main>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        background: #070a10;
+        color: #e6edf3;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      .page {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 32px 20px 64px;
+      }
+      .page-header h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+      }
+      .page-header p {
+        margin: 0 0 24px;
+        color: #9aa7bd;
+        max-width: 60ch;
+      }
+      .page-footer {
+        margin-top: 24px;
+        color: #6b7688;
+        font-size: 13px;
+      }
+    </style>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

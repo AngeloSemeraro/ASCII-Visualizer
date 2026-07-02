@@ -1,0 +1,161 @@
+/* All rules are scoped under .asciiv-root so the widget can be dropped into any
+   page (including WordPress themes) without leaking styles. Dark theme. */
+
+.asciiv-root {
+  --asciiv-bg: #0b0e14;
+  --asciiv-panel: #131826;
+  --asciiv-panel-2: #1b2233;
+  --asciiv-border: #2a3348;
+  --asciiv-text: #e6edf3;
+  --asciiv-muted: #9aa7bd;
+  --asciiv-accent: #4f8cff;
+  --asciiv-accent-2: #2f6bd6;
+  --asciiv-danger: #ff6b6b;
+
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 auto;
+  padding: 12px;
+  background: var(--asciiv-bg);
+  color: var(--asciiv-text);
+  border: 1px solid var(--asciiv-border);
+  border-radius: 12px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.asciiv-root *,
+.asciiv-root *::before,
+.asciiv-root *::after {
+  box-sizing: border-box;
+}
+
+.asciiv-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--asciiv-border);
+  border-radius: 8px;
+}
+
+.asciiv-canvas {
+  display: block;
+  max-width: 100%;
+  image-rendering: pixelated;
+}
+
+.asciiv-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.asciiv-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.asciiv-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--asciiv-muted);
+  white-space: nowrap;
+}
+
+.asciiv-field-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.asciiv-check {
+  cursor: pointer;
+}
+
+.asciiv-value {
+  min-width: 2.5em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--asciiv-text);
+}
+
+.asciiv-btn {
+  appearance: none;
+  cursor: pointer;
+  padding: 8px 14px;
+  color: var(--asciiv-text);
+  background: var(--asciiv-panel-2);
+  border: 1px solid var(--asciiv-border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.asciiv-btn:hover {
+  background: #232c42;
+}
+
+.asciiv-btn:focus-visible {
+  outline: 2px solid var(--asciiv-accent);
+  outline-offset: 2px;
+}
+
+.asciiv-btn-primary {
+  background: var(--asciiv-accent);
+  border-color: var(--asciiv-accent-2);
+  color: #fff;
+}
+
+.asciiv-btn-primary:hover {
+  background: var(--asciiv-accent-2);
+}
+
+.asciiv-btn-active {
+  background: var(--asciiv-danger);
+  border-color: var(--asciiv-danger);
+  color: #1a0000;
+}
+
+.asciiv-btn-active:hover {
+  background: #ff8686;
+}
+
+.asciiv-select,
+.asciiv-range {
+  color: var(--asciiv-text);
+  background: var(--asciiv-panel);
+  border: 1px solid var(--asciiv-border);
+  border-radius: 6px;
+}
+
+.asciiv-select {
+  padding: 6px 8px;
+  font-size: 13px;
+  max-width: 220px;
+}
+
+.asciiv-range {
+  padding: 0;
+  accent-color: var(--asciiv-accent);
+  width: 160px;
+}
+
+.asciiv-status {
+  min-height: 1.2em;
+  font-size: 12px;
+  color: var(--asciiv-muted);
+}
+
+.asciiv-status-error {
+  color: var(--asciiv-danger);
+}

@@ -1,0 +1,20 @@
+{
+  "name": "ascii-visualizer",
+  "version": "1.0.0",
+  "description": "Real-time webcam to ASCII art filter. Pure client-side, no server, no runtime dependencies.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Angelo Semeraro",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:embed": "vite build --mode embed",
+    "build:all": "npm run build && npm run build:embed",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}
