@@ -14,6 +14,8 @@ import {
   charForLuma,
   rowsForColumns,
   imageDataToText,
+  phraseUnit,
+  phraseCharForLuma,
   type CharsetName,
 } from "./ascii";
 
@@ -22,8 +24,12 @@ export type ColorMode = "color" | "mono" | "inverted";
 export interface AsciiVisualizerOptions {
   /** Target number of character columns. Rows are derived from aspect ratio. */
   columns?: number;
-  /** Character ramp to use. */
+  /** Character ramp to use (when `phrase` is not set). */
   charset?: CharsetName | string;
+  /** Build the image out of this repeating sentence instead of the ramp. */
+  phrase?: string;
+  /** Brightness threshold (0..1) a cell must clear to show a phrase letter. */
+  phraseThreshold?: number;
   /** How glyphs are colored: per-pixel color, single foreground, or inverted. */
   colorMode?: ColorMode;
   /** Contrast multiplier around mid-gray. 1 = unchanged. */
@@ -59,6 +65,8 @@ const DEFAULTS: Required<
 > = {
   columns: 240,
   charset: "binary",
+  phrase: "sono una terapia",
+  phraseThreshold: 1 / 3,
   colorMode: "mono",
   contrast: 1.35,
   brightness: -46,
@@ -303,6 +311,8 @@ export class AsciiVisualizer {
       brightness: this.opts.brightness,
       contrast: this.opts.contrast,
       invert: this.opts.invert,
+      phrase: this.opts.phrase,
+      phraseThreshold: this.opts.phraseThreshold,
     });
 
     // 3) Paint the ASCII onto the display canvas.
@@ -335,16 +345,22 @@ export class AsciiVisualizer {
     fctx.textAlign = "left";
     fctx.font = `${cellH}px "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono", monospace`;
 
+    const unit = phraseUnit(this.opts.phrase);
+    const threshold = this.opts.phraseThreshold;
+
     const { width, height, data } = image;
     for (let y = 0; y < height && y < rows; y++) {
       for (let x = 0; x < width && x < columns; x++) {
-        const i = (y * width + x) * 4;
+        const idx = y * width + x;
+        const i = idx * 4;
         const r = data[i];
         const g = data[i + 1];
         const b = data[i + 2];
         const l = luma(r, g, b);
         const v = adjust(l, this.opts.brightness, this.opts.contrast, this.opts.invert);
-        const ch = charForLuma(v, charset);
+        const ch = unit
+          ? phraseCharForLuma(v, unit, idx, threshold)
+          : charForLuma(v, charset);
         if (ch === " ") continue;
 
         if (this.opts.colorMode === "color") {

@@ -92,11 +92,43 @@ export function rowsForColumns(
   return Math.max(1, rows);
 }
 
+/**
+ * Build the repeating unit for phrase mode: the trimmed phrase plus a single
+ * trailing space so consecutive repetitions stay separated. Returns "" when
+ * there is no phrase (callers then fall back to the character ramp).
+ */
+export function phraseUnit(phrase: string | null | undefined): string {
+  if (!phrase) return "";
+  const trimmed = phrase.trim();
+  return trimmed ? trimmed + " " : "";
+}
+
+/**
+ * Phrase-mode cell character. The sentence is tiled continuously across the
+ * raster (indexed by `cellIndex`); a cell lights up with its tiled letter only
+ * when the adjusted luminance clears `threshold`, otherwise it stays blank.
+ */
+export function phraseCharForLuma(
+  value: number,
+  unit: string,
+  cellIndex: number,
+  threshold = 1 / 3
+): string {
+  if (unit.length === 0) return " ";
+  if (value / 255 < threshold) return " ";
+  const ch = unit.charAt(cellIndex % unit.length);
+  return ch === " " ? " " : ch;
+}
+
 export interface ImageToTextOptions {
   charset?: string;
   brightness?: number;
   contrast?: number;
   invert?: boolean;
+  /** When set, render the image out of this repeating sentence instead of the ramp. */
+  phrase?: string;
+  /** Brightness threshold (0..1) a cell must clear to show a phrase letter. */
+  phraseThreshold?: number;
 }
 
 /**
@@ -109,6 +141,8 @@ export function imageDataToText(image: ImageData, opts: ImageToTextOptions = {})
   const brightness = opts.brightness ?? 0;
   const contrast = opts.contrast ?? 1;
   const invert = opts.invert ?? false;
+  const unit = phraseUnit(opts.phrase);
+  const threshold = opts.phraseThreshold ?? 1 / 3;
 
   const { width, height, data } = image;
   const lines: string[] = [];
@@ -116,10 +150,13 @@ export function imageDataToText(image: ImageData, opts: ImageToTextOptions = {})
   for (let y = 0; y < height; y++) {
     let line = "";
     for (let x = 0; x < width; x++) {
-      const i = (y * width + x) * 4;
+      const idx = y * width + x;
+      const i = idx * 4;
       const l = luma(data[i], data[i + 1], data[i + 2]);
       const v = adjust(l, brightness, contrast, invert);
-      line += charForLuma(v, charset);
+      line += unit
+        ? phraseCharForLuma(v, unit, idx, threshold)
+        : charForLuma(v, charset);
     }
     lines.push(line);
   }

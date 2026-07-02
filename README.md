@@ -53,7 +53,7 @@ can still be overridden programmatically or via `data-*` attributes.
 | Setting     | Default   |
 | ----------- | --------- |
 | Columns     | `240`     |
-| Charset     | `binary`  |
+| Text        | `sono una terapia` |
 | Color mode  | `mono`    |
 | Contrast    | `1.35`    |
 | Brightness  | `-46`     |
@@ -81,10 +81,23 @@ Tune it with:
 
 Set `trail: 0` to disable the effect and clear each frame.
 
-### Charsets
+### Phrase mode
 
-`standard`, `detailed`, `blocks`, `minimal`, `binary` — each an ordered ramp
-from darkest to lightest.
+By default the image isn't built from a brightness ramp at all — it's built
+from a repeating **sentence**. The phrase (`sono una terapia`) is tiled
+continuously across the frame and a cell lights up with its tiled letter only
+where the image is bright enough (above `phraseThreshold`), so you literally
+read the sentence flowing through the lit shape. Set `phrase` to any string, or
+`phrase: ""` to fall back to a character ramp.
+
+- `phrase` — the sentence to render with (default `"sono una terapia"`).
+- `phraseThreshold` (0..1) — how bright a cell must be to show a letter (default `0.33`).
+
+### Charsets (ramp fallback)
+
+When `phrase` is empty, luminance maps onto a character ramp instead:
+`standard`, `detailed`, `blocks`, `minimal`, `binary` — each ordered from
+darkest to lightest.
 
 ## Embedding
 
@@ -122,7 +135,9 @@ window.AsciiVisualizer.createVisualizer(document.getElementById("host"), {
 | ----------------- | --------------------------------------------- |
 | `data-columns`    | Target column count                           |
 | `data-color`      | `color` \| `mono` \| `inverted`               |
-| `data-preset`     | Charset name                                  |
+| `data-preset`     | Charset name (ramp fallback)                  |
+| `data-phrase`     | Sentence to render the image with             |
+| `data-phrasethreshold` | Brightness threshold for a letter (0..1) |
 | `data-controls`   | Show the control panel (`true`/`false`)       |
 | `data-autostart`  | Start the camera on load                      |
 | `data-background` | Display background color                       |

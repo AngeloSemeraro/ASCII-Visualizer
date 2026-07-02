@@ -97,6 +97,10 @@ export function optionsFromDataset(dataset: DOMStringMap): WidgetOptions {
   if (dataset.columns != null) opts.columns = parseNumber(dataset.columns, 120);
   if (dataset.color != null) opts.colorMode = dataset.color as ColorMode;
   if (dataset.preset != null) opts.charset = dataset.preset as CharsetName;
+  if (dataset.phrase != null) opts.phrase = dataset.phrase;
+  if (dataset.phrasethreshold != null) {
+    opts.phraseThreshold = parseNumber(dataset.phrasethreshold, 1 / 3);
+  }
   opts.controls = parseBool(dataset.controls, true);
   opts.autostart = parseBool(dataset.autostart, false);
   if (dataset.background != null) opts.background = dataset.background;

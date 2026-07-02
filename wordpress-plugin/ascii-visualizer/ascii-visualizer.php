@@ -42,7 +42,8 @@ add_action( 'wp_enqueue_scripts', 'ascii_visualizer_register_assets' );
  * Supported attributes:
  *   columns    - target column count (default 120)
  *   color      - color | mono | inverted (default color)
- *   preset     - charset name: standard | detailed | blocks | minimal | binary
+ *   preset     - charset name (ramp fallback): standard | detailed | blocks | minimal | binary
+ *   phrase     - sentence to build the image from (empty = use the ramp)
  *   controls   - show the control panel: true | false (default true)
  *   autostart  - start the camera on load: true | false (default false)
  *   background - display background color
@@ -59,6 +60,7 @@ function ascii_visualizer_shortcode( $atts ) {
 			'columns'    => '240',
 			'color'      => 'mono',
 			'preset'     => 'binary',
+			'phrase'     => 'sono una terapia',
 			'controls'   => 'true',
 			'autostart'  => 'false',
 			'background' => '',
@@ -78,6 +80,7 @@ function ascii_visualizer_shortcode( $atts ) {
 		'data-columns'          => $atts['columns'],
 		'data-color'            => $atts['color'],
 		'data-preset'           => $atts['preset'],
+		'data-phrase'           => $atts['phrase'],
 		'data-controls'         => $atts['controls'],
 		'data-autostart'        => $atts['autostart'],
 	);
