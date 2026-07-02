@@ -34,7 +34,6 @@ export function createVisualizer(
 
   const stage = document.createElement("div");
   stage.className = "asciiv-stage";
-  if (options.height) stage.style.minHeight = options.height;
   root.appendChild(stage);
 
   let controls: ControlsHandle | null = null;

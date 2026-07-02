@@ -64,6 +64,9 @@ export interface AsciiVisualizerOptions {
   background?: string;
   /** Foreground color used in mono / inverted modes. */
   foreground?: string;
+  /** Fixed display height (any CSS length). When set, the canvas is scaled to
+   *  fit this height (letterboxed), instead of growing to the ASCII aspect. */
+  height?: string;
   /** Start the camera automatically on mount. */
   autostart?: boolean;
   /** Preferred camera deviceId. */
@@ -98,6 +101,7 @@ const DEFAULTS: Required<
   glitch: false,
   background: "#0b0e14",
   foreground: "#e6edf3",
+  height: "",
   autostart: false,
 };
 
@@ -194,6 +198,7 @@ export class AsciiVisualizer {
   /** Attach the display canvas + hidden video to the container. */
   mount(): void {
     if (this.mounted) return;
+    if (this.opts.height) this.container.style.height = this.opts.height;
     this.container.appendChild(this.video);
     this.container.appendChild(this.display);
     this.mounted = true;
@@ -397,8 +402,7 @@ export class AsciiVisualizer {
     const pxHeight = Math.max(1, Math.round(cssHeight * dpr));
     if (this.display.width !== pxWidth) this.display.width = pxWidth;
     if (this.display.height !== pxHeight) this.display.height = pxHeight;
-    this.display.style.width = `${cssWidth}px`;
-    this.display.style.height = `${cssHeight}px`;
+    this.applyDisplayStyle(cssWidth, cssHeight);
     this.ensureLayers(pxWidth, pxHeight);
 
     const inverted = this.opts.colorMode === "inverted";
@@ -620,6 +624,26 @@ export class AsciiVisualizer {
     return this.scanlinePattern;
   }
 
+  /**
+   * Size the visible canvas. With a fixed `height` set, let CSS scale the canvas
+   * to fit the container (preserving aspect, letterboxed); otherwise pin it to
+   * the computed width/height so the container grows to the ASCII aspect.
+   */
+  private applyDisplayStyle(cssWidth: number, cssHeight: number): void {
+    const s = this.display.style;
+    if (this.opts.height) {
+      s.width = "auto";
+      s.height = "auto";
+      s.maxWidth = "100%";
+      s.maxHeight = "100%";
+    } else {
+      s.maxWidth = "100%";
+      s.maxHeight = "none";
+      s.width = `${cssWidth}px`;
+      s.height = `${cssHeight}px`;
+    }
+  }
+
   /** (Re)allocate the offscreen layers when the display size changes. */
   private ensureLayers(pxWidth: number, pxHeight: number): void {
     if (this.layerW === pxWidth && this.layerH === pxHeight) return;
@@ -680,8 +704,7 @@ export class AsciiVisualizer {
     const pxHeight = Math.max(1, Math.round(cssHeight * dpr));
     this.display.width = pxWidth;
     this.display.height = pxHeight;
-    this.display.style.width = `${cssWidth}px`;
-    this.display.style.height = `${cssHeight}px`;
+    this.applyDisplayStyle(cssWidth, cssHeight);
 
     const ctx = this.displayCtx;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

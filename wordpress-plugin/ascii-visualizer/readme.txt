@@ -4,7 +4,7 @@ Tags: webcam, ascii, art, camera, filter, canvas
 Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.2
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -61,6 +61,13 @@ Browsers require a user gesture and explicit permission for camera access. Click
 prompt for permission.
 
 == Changelog ==
+
+= 1.1.0 =
+* Add a "Shortcode builder" settings page (Settings → ASCII Visualizer) with a
+  live preview that generates a ready-to-paste shortcode.
+* Fix the `height` attribute: the widget now fits the canvas to a fixed height
+  (letterboxed) instead of only setting a minimum.
+* Add filter attributes: `ghost`, `crt`, `slitscan`, `glitch`.
 
 = 1.0.0 =
 * Initial release: `[ascii_visualizer]` shortcode with the prebuilt embed bundle.

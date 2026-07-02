@@ -168,7 +168,7 @@ window.AsciiVisualizer.createVisualizer(document.getElementById("host"), {
 | `data-autostart`  | Start the camera on load                      |
 | `data-background` | Display background color                       |
 | `data-foreground` | Foreground color (mono / inverted)            |
-| `data-height`     | Min stage height (CSS)                         |
+| `data-height`     | Fixed display height (CSS); canvas fits inside  |
 | `data-maxwidth`   | Max widget width (CSS)                         |
 | `data-contrast`   | Contrast multiplier                           |
 | `data-brightness` | Brightness offset                             |
@@ -191,8 +191,12 @@ It registers an `[ascii_visualizer]` shortcode that emits a
 `data-ascii-visualizer` element and enqueues the prebuilt embed bundle:
 
 ```
-[ascii_visualizer columns="240" color="mono" preset="binary" controls="true"]
+[ascii_visualizer columns="240" color="mono" phrase="sono una terapia" ghost="true"]
 ```
+
+It also adds a **Settings → ASCII Visualizer** page: a shortcode builder with a
+live preview that generates a ready-to-paste shortcode from every option
+(including the `ghost` / `crt` / `slitscan` / `glitch` filters).
 
 Rebuild its bundled asset after changing the source:
 

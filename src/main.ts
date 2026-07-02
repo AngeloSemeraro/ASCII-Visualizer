@@ -15,7 +15,6 @@ if (declared.length > 0) {
       controls: true,
       autostart: false,
       maxWidth: "960px",
-      height: "360px",
     });
   }
 }
