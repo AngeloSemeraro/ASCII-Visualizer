@@ -34,10 +34,12 @@ export interface AsciiVisualizerOptions {
   invert?: boolean;
   /** Mirror the image horizontally (selfie view). */
   mirror?: boolean;
-  /** Motion trail persistence, 0..1. 0 = off (clear each frame), higher = longer wake. */
+  /** Long-exposure persistence, 0..1. 0 = off; higher = light lingers far longer. */
   trail?: number;
-  /** Blur radius (CSS px) applied to the decaying trail layer. */
+  /** Blur radius (CSS px) applied to the glowing trail layer. */
   trailBlur?: number;
+  /** Opacity of the crisp current frame drawn over the dreamy trail, 0..1. */
+  trailSharp?: number;
   /** Background color of the display canvas. */
   background?: string;
   /** Foreground color used in mono / inverted modes. */
@@ -62,8 +64,9 @@ const DEFAULTS: Required<
   brightness: -46,
   invert: false,
   mirror: true,
-  trail: 0.62,
-  trailBlur: 2,
+  trail: 0.94,
+  trailBlur: 2.5,
+  trailSharp: 0.35,
   background: "#0b0e14",
   foreground: "#e6edf3",
   autostart: false,
@@ -358,31 +361,49 @@ export class AsciiVisualizer {
     const ctx = this.displayCtx;
     ctx.setTransform(1, 0, 0, 1, 0, 0); // composite in device px
     ctx.filter = "none";
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, pxWidth, pxHeight);
 
     const trail = this.opts.trail;
     if (trail > 0) {
-      // 2) Accumulate: decay the previous trail toward bg, then stamp the fresh
-      //    frame on top. Static content is re-asserted each frame (stays put);
-      //    moving content is left behind and fades = a motion wake.
+      // Long-exposure accumulation. Each frame we (1) gently decay the buffer
+      // toward the background, then (2) blend the fresh frame in "lighten" mode
+      // so the brightest value at each pixel wins. Bright moving glyphs keep
+      // re-lighting new positions while their old positions slowly fade — the
+      // result is a glowing, smeary light-trail like a slow-shutter photo.
       const tctx = this.trailCtx;
       tctx.setTransform(1, 0, 0, 1, 0, 0);
       tctx.filter = "none";
+
+      const keep = Math.min(0.985, Math.max(0.02, trail));
       tctx.globalCompositeOperation = "source-over";
-      tctx.globalAlpha = 1 - Math.min(0.98, Math.max(0, trail));
+      tctx.globalAlpha = 1 - keep; // small => slow decay => long trails
       tctx.fillStyle = bg;
       tctx.fillRect(0, 0, pxWidth, pxHeight);
+
+      tctx.globalCompositeOperation = "lighten";
       tctx.globalAlpha = 1;
       tctx.drawImage(this.frame, 0, 0);
+      tctx.globalCompositeOperation = "source-over";
 
-      // 3) Blit the blurred trail, then the crisp current frame over it.
+      // Show the soft, blurred long exposure as the main image...
       ctx.filter = `blur(${(this.opts.trailBlur * dpr).toFixed(2)}px)`;
+      ctx.globalCompositeOperation = "lighten";
       ctx.drawImage(this.trail, 0, 0);
       ctx.filter = "none";
-    }
 
-    ctx.drawImage(this.frame, 0, 0);
+      // ...then a faint crisp layer so the current pose still reads.
+      if (this.opts.trailSharp > 0) {
+        ctx.globalAlpha = Math.min(1, this.opts.trailSharp);
+        ctx.drawImage(this.frame, 0, 0);
+        ctx.globalAlpha = 1;
+      }
+      ctx.globalCompositeOperation = "source-over";
+    } else {
+      ctx.drawImage(this.frame, 0, 0);
+    }
   }
 
   /** (Re)allocate the offscreen layers when the display size changes. */

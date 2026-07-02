@@ -58,19 +58,28 @@ can still be overridden programmatically or via `data-*` attributes.
 | Contrast    | `1.35`    |
 | Brightness  | `-46`     |
 | Mirror      | on        |
-| Trail       | `0.62`    |
-| Trail blur  | `2px`     |
+| Trail       | `0.94`    |
+| Trail blur  | `2.5px`   |
+| Trail sharp | `0.35`    |
 
 ## Effects
 
-### Blurred motion trail
+### Dreamy long-exposure trail
 
-Frames are composited on an offscreen accumulator that decays toward the
-background each frame and is blitted through a blur filter before the crisp
-current frame is drawn on top. Static content is re-asserted every frame and
-stays put; moving content is left behind and fades — a soft, blurred wake that
-follows motion. Tune it with the `trail` (0..1 persistence) and `trailBlur`
-(CSS px) options; `trail: 0` disables it and clears each frame.
+A slow-shutter / light-painting effect. Frames accumulate on an offscreen
+buffer that decays only slightly each frame and blends new frames in `lighten`
+mode, so the brightest value at each pixel wins. Bright moving glyphs keep
+re-lighting new positions while their old positions fade slowly — leaving soft,
+glowing streaks that smear behind motion. The buffer is shown blurred as the
+main image, with a faint crisp layer over it so the current pose still reads.
+
+Tune it with:
+
+- `trail` (0..1) — persistence. Higher = light lingers far longer (default `0.94`).
+- `trailBlur` (CSS px) — softness of the glow (default `2.5`).
+- `trailSharp` (0..1) — opacity of the crisp current-frame overlay (default `0.35`; `0` = full dream).
+
+Set `trail: 0` to disable the effect and clear each frame.
 
 ### Charsets
 
@@ -124,8 +133,9 @@ window.AsciiVisualizer.createVisualizer(document.getElementById("host"), {
 | `data-brightness` | Brightness offset                             |
 | `data-invert`     | Invert luminance                              |
 | `data-mirror`     | Mirror horizontally                           |
-| `data-trail`      | Motion trail persistence (0..1, 0 = off)      |
+| `data-trail`      | Long-exposure persistence (0..1, 0 = off)     |
 | `data-trailblur`  | Trail blur radius (CSS px)                     |
+| `data-trailsharp` | Crisp overlay opacity (0..1)                  |
 
 ## WordPress plugin
 
