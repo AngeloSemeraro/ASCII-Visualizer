@@ -43,9 +43,34 @@ Then open the printed URL and click **Start** to grant camera access.
 
 ## Controls
 
-Start / stop, camera selection, resolution (columns), charset, color mode
-(color / mono / inverted), contrast, brightness, invert and mirror toggles,
-**Save PNG**, and **Copy text**.
+The UI is intentionally minimal: **Start / Stop**, a **camera selector**, and
+**Save PNG**. Everything else (resolution, charset, color mode, contrast,
+brightness, mirror, and the motion trail) is baked into a tuned default look and
+can still be overridden programmatically or via `data-*` attributes.
+
+### Default look
+
+| Setting     | Default   |
+| ----------- | --------- |
+| Columns     | `240`     |
+| Charset     | `binary`  |
+| Color mode  | `mono`    |
+| Contrast    | `1.35`    |
+| Brightness  | `-46`     |
+| Mirror      | on        |
+| Trail       | `0.62`    |
+| Trail blur  | `2px`     |
+
+## Effects
+
+### Blurred motion trail
+
+Frames are composited on an offscreen accumulator that decays toward the
+background each frame and is blitted through a blur filter before the crisp
+current frame is drawn on top. Static content is re-asserted every frame and
+stays put; moving content is left behind and fades — a soft, blurred wake that
+follows motion. Tune it with the `trail` (0..1 persistence) and `trailBlur`
+(CSS px) options; `trail: 0` disables it and clears each frame.
 
 ### Charsets
 
@@ -63,9 +88,9 @@ npm run build:embed
 ```html
 <div
   data-ascii-visualizer
-  data-columns="120"
-  data-color="color"
-  data-preset="standard"
+  data-columns="240"
+  data-color="mono"
+  data-preset="binary"
   data-controls="true"
   data-autostart="false"
 ></div>
@@ -99,6 +124,8 @@ window.AsciiVisualizer.createVisualizer(document.getElementById("host"), {
 | `data-brightness` | Brightness offset                             |
 | `data-invert`     | Invert luminance                              |
 | `data-mirror`     | Mirror horizontally                           |
+| `data-trail`      | Motion trail persistence (0..1, 0 = off)      |
+| `data-trailblur`  | Trail blur radius (CSS px)                     |
 
 ## WordPress plugin
 
@@ -107,7 +134,7 @@ It registers an `[ascii_visualizer]` shortcode that emits a
 `data-ascii-visualizer` element and enqueues the prebuilt embed bundle:
 
 ```
-[ascii_visualizer columns="120" color="color" preset="standard" controls="true"]
+[ascii_visualizer columns="240" color="mono" preset="binary" controls="true"]
 ```
 
 Rebuild its bundled asset after changing the source:

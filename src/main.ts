@@ -10,9 +10,8 @@ if (declared.length > 0) {
 } else {
   const app = document.getElementById("app");
   if (app) {
+    // Image settings come from the engine defaults; only layout is set here.
     createVisualizer(app, {
-      columns: 120,
-      colorMode: "color",
       controls: true,
       autostart: false,
       maxWidth: "960px",

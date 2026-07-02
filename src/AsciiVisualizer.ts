@@ -14,7 +14,6 @@ import {
   charForLuma,
   rowsForColumns,
   imageDataToText,
-  DEFAULT_CHARSET,
   type CharsetName,
 } from "./ascii";
 
@@ -35,6 +34,10 @@ export interface AsciiVisualizerOptions {
   invert?: boolean;
   /** Mirror the image horizontally (selfie view). */
   mirror?: boolean;
+  /** Motion trail persistence, 0..1. 0 = off (clear each frame), higher = longer wake. */
+  trail?: number;
+  /** Blur radius (CSS px) applied to the decaying trail layer. */
+  trailBlur?: number;
   /** Background color of the display canvas. */
   background?: string;
   /** Foreground color used in mono / inverted modes. */
@@ -52,13 +55,15 @@ export interface AsciiVisualizerOptions {
 const DEFAULTS: Required<
   Omit<AsciiVisualizerOptions, "deviceId" | "onError" | "onStateChange">
 > = {
-  columns: 120,
-  charset: DEFAULT_CHARSET,
-  colorMode: "color",
-  contrast: 1,
-  brightness: 0,
+  columns: 240,
+  charset: "binary",
+  colorMode: "mono",
+  contrast: 1.35,
+  brightness: -46,
   invert: false,
   mirror: true,
+  trail: 0.62,
+  trailBlur: 2,
   background: "#0b0e14",
   foreground: "#e6edf3",
   autostart: false,
@@ -82,6 +87,14 @@ export class AsciiVisualizer {
   private samplerCtx: CanvasRenderingContext2D;
   private display: HTMLCanvasElement;
   private displayCtx: CanvasRenderingContext2D;
+
+  // Offscreen compositing layers for the motion trail effect.
+  private frame: HTMLCanvasElement;
+  private frameCtx: CanvasRenderingContext2D;
+  private trail: HTMLCanvasElement;
+  private trailCtx: CanvasRenderingContext2D;
+  private layerW = 0;
+  private layerH = 0;
 
   private stream: MediaStream | null = null;
   private rafId = 0;
@@ -111,6 +124,16 @@ export class AsciiVisualizer {
     const dctx = this.display.getContext("2d");
     if (!dctx) throw new Error("2D canvas context unavailable");
     this.displayCtx = dctx;
+
+    this.frame = document.createElement("canvas");
+    const fctx = this.frame.getContext("2d");
+    if (!fctx) throw new Error("2D canvas context unavailable");
+    this.frameCtx = fctx;
+
+    this.trail = document.createElement("canvas");
+    const tctx = this.trail.getContext("2d");
+    if (!tctx) throw new Error("2D canvas context unavailable");
+    this.trailCtx = tctx;
   }
 
   /** Attach the display canvas + hidden video to the container. */
@@ -161,6 +184,7 @@ export class AsciiVisualizer {
     }
 
     this.running = true;
+    this.clearTrail();
     this.opts.onStateChange?.(true);
     this.loop();
   }
@@ -295,18 +319,18 @@ export class AsciiVisualizer {
     if (this.display.height !== pxHeight) this.display.height = pxHeight;
     this.display.style.width = `${cssWidth}px`;
     this.display.style.height = `${cssHeight}px`;
-
-    const ctx = this.displayCtx;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.ensureLayers(pxWidth, pxHeight);
 
     const inverted = this.opts.colorMode === "inverted";
     const bg = inverted ? this.opts.foreground : this.opts.background;
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, cssWidth, cssHeight);
 
-    ctx.textBaseline = "top";
-    ctx.textAlign = "left";
-    ctx.font = `${cellH}px "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono", monospace`;
+    // 1) Render the sharp glyph layer (transparent background) at device px.
+    const fctx = this.frameCtx;
+    fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    fctx.clearRect(0, 0, cssWidth, cssHeight);
+    fctx.textBaseline = "top";
+    fctx.textAlign = "left";
+    fctx.font = `${cellH}px "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono", monospace`;
 
     const { width, height, data } = image;
     for (let y = 0; y < height && y < rows; y++) {
@@ -321,15 +345,69 @@ export class AsciiVisualizer {
         if (ch === " ") continue;
 
         if (this.opts.colorMode === "color") {
-          ctx.fillStyle = `rgb(${r},${g},${b})`;
+          fctx.fillStyle = `rgb(${r},${g},${b})`;
         } else if (inverted) {
-          ctx.fillStyle = this.opts.background;
+          fctx.fillStyle = this.opts.background;
         } else {
-          ctx.fillStyle = this.opts.foreground;
+          fctx.fillStyle = this.opts.foreground;
         }
-        ctx.fillText(ch, x * cellW, y * cellH);
+        fctx.fillText(ch, x * cellW, y * cellH);
       }
     }
+
+    const ctx = this.displayCtx;
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // composite in device px
+    ctx.filter = "none";
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, pxWidth, pxHeight);
+
+    const trail = this.opts.trail;
+    if (trail > 0) {
+      // 2) Accumulate: decay the previous trail toward bg, then stamp the fresh
+      //    frame on top. Static content is re-asserted each frame (stays put);
+      //    moving content is left behind and fades = a motion wake.
+      const tctx = this.trailCtx;
+      tctx.setTransform(1, 0, 0, 1, 0, 0);
+      tctx.filter = "none";
+      tctx.globalCompositeOperation = "source-over";
+      tctx.globalAlpha = 1 - Math.min(0.98, Math.max(0, trail));
+      tctx.fillStyle = bg;
+      tctx.fillRect(0, 0, pxWidth, pxHeight);
+      tctx.globalAlpha = 1;
+      tctx.drawImage(this.frame, 0, 0);
+
+      // 3) Blit the blurred trail, then the crisp current frame over it.
+      ctx.filter = `blur(${(this.opts.trailBlur * dpr).toFixed(2)}px)`;
+      ctx.drawImage(this.trail, 0, 0);
+      ctx.filter = "none";
+    }
+
+    ctx.drawImage(this.frame, 0, 0);
+  }
+
+  /** (Re)allocate the offscreen layers when the display size changes. */
+  private ensureLayers(pxWidth: number, pxHeight: number): void {
+    if (this.layerW === pxWidth && this.layerH === pxHeight) return;
+    this.frame.width = pxWidth;
+    this.frame.height = pxHeight;
+    this.trail.width = pxWidth;
+    this.trail.height = pxHeight;
+    this.layerW = pxWidth;
+    this.layerH = pxHeight;
+    this.clearTrail();
+  }
+
+  /** Reset the trail buffer to the background color. */
+  private clearTrail(): void {
+    if (this.trail.width === 0 || this.trail.height === 0) return;
+    const inverted = this.opts.colorMode === "inverted";
+    const bg = inverted ? this.opts.foreground : this.opts.background;
+    const tctx = this.trailCtx;
+    tctx.setTransform(1, 0, 0, 1, 0, 0);
+    tctx.filter = "none";
+    tctx.globalAlpha = 1;
+    tctx.fillStyle = bg;
+    tctx.fillRect(0, 0, this.trail.width, this.trail.height);
   }
 
   private renderPlaceholder(): void {

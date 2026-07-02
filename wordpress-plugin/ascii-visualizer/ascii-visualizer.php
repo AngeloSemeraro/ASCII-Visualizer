@@ -56,9 +56,9 @@ add_action( 'wp_enqueue_scripts', 'ascii_visualizer_register_assets' );
 function ascii_visualizer_shortcode( $atts ) {
 	$atts = shortcode_atts(
 		array(
-			'columns'    => '120',
-			'color'      => 'color',
-			'preset'     => 'standard',
+			'columns'    => '240',
+			'color'      => 'mono',
+			'preset'     => 'binary',
 			'controls'   => 'true',
 			'autostart'  => 'false',
 			'background' => '',
