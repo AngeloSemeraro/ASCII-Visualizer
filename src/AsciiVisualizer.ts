@@ -50,6 +50,14 @@ export interface AsciiVisualizerOptions {
   trailBlur?: number;
   /** Opacity of the crisp current frame drawn over the dreamy trail, 0..1. */
   trailSharp?: number;
+  /** Rainbow filter: animate glyph color through the hue wheel over time. */
+  rainbow?: boolean;
+  /** Ghost/motion filter: only render cells that changed since the last frame. */
+  ghost?: boolean;
+  /** Motion sensitivity for ghost mode (0..255 luminance delta). Lower = more sensitive. */
+  ghostThreshold?: number;
+  /** CRT filter: overlay scanlines + vignette for a retro-monitor look. */
+  crt?: boolean;
   /** Background color of the display canvas. */
   background?: string;
   /** Foreground color used in mono / inverted modes. */
@@ -81,6 +89,10 @@ const DEFAULTS: Required<
   trail: 0.94,
   trailBlur: 2.5,
   trailSharp: 0.35,
+  rainbow: false,
+  ghost: false,
+  ghostThreshold: 16,
+  crt: false,
   background: "#0b0e14",
   foreground: "#e6edf3",
   autostart: false,
@@ -120,6 +132,8 @@ export class AsciiVisualizer {
   private resizeObserver: ResizeObserver | null = null;
   private lastText = "";
   private exposureGain = 1;
+  private prevLuma: Float32Array | null = null;
+  private scanlinePattern: CanvasPattern | null = null;
 
   constructor(container: HTMLElement, options: AsciiVisualizerOptions = {}) {
     this.container = container;
@@ -203,6 +217,7 @@ export class AsciiVisualizer {
 
     this.running = true;
     this.exposureGain = 1;
+    this.prevLuma = null;
     this.clearTrail();
     this.opts.onStateChange?.(true);
     this.loop();
@@ -362,7 +377,18 @@ export class AsciiVisualizer {
     const threshold = this.opts.phraseThreshold;
     const gain = this.exposureGain;
 
+    // Ghost/motion filter needs a per-cell luminance buffer from the last frame.
     const { width, height, data } = image;
+    const ghost = this.opts.ghost;
+    if (ghost && (!this.prevLuma || this.prevLuma.length !== width * height)) {
+      this.prevLuma = new Float32Array(width * height);
+    }
+    const prev = this.prevLuma;
+    const motionThreshold = this.opts.ghostThreshold;
+
+    const rainbow = this.opts.rainbow;
+    const now = performance.now();
+
     for (let y = 0; y < height && y < rows; y++) {
       for (let x = 0; x < width && x < columns; x++) {
         const idx = y * width + x;
@@ -371,12 +397,22 @@ export class AsciiVisualizer {
         const g = data[i + 1];
         const b = data[i + 2];
         const v = pixelValue(r, g, b, gain, this.opts.brightness, this.opts.contrast, this.opts.invert);
-        const ch = unit
+
+        let ch = unit
           ? phraseCharForLuma(v, unit, idx, threshold)
           : charForLuma(v, charset);
+
+        if (ghost && prev) {
+          const moved = Math.abs(v - prev[idx]) >= motionThreshold;
+          prev[idx] = v;
+          if (!moved) ch = " ";
+        }
         if (ch === " ") continue;
 
-        if (this.opts.colorMode === "color") {
+        if (rainbow) {
+          const hue = (now * 0.06 + x * 3 + y * 1.5) % 360;
+          fctx.fillStyle = `hsl(${hue}, 100%, 60%)`;
+        } else if (this.opts.colorMode === "color") {
           fctx.fillStyle = `rgb(${r},${g},${b})`;
         } else if (inverted) {
           fctx.fillStyle = this.opts.background;
@@ -433,6 +469,47 @@ export class AsciiVisualizer {
     } else {
       ctx.drawImage(this.frame, 0, 0);
     }
+
+    if (this.opts.crt) this.applyCrt(ctx, pxWidth, pxHeight);
+  }
+
+  /** Overlay scanlines + a vignette for a retro CRT-monitor look. */
+  private applyCrt(ctx: CanvasRenderingContext2D, pxWidth: number, pxHeight: number): void {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.filter = "none";
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+
+    // Scanlines (cached repeating pattern of dark horizontal lines).
+    const pattern = this.getScanlinePattern();
+    if (pattern) {
+      ctx.fillStyle = pattern;
+      ctx.fillRect(0, 0, pxWidth, pxHeight);
+    }
+
+    // Vignette: transparent center fading to dark edges.
+    const cx = pxWidth / 2;
+    const cy = pxHeight / 2;
+    const r = Math.max(pxWidth, pxHeight) * 0.75;
+    const vignette = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r);
+    vignette.addColorStop(0, "rgba(0,0,0,0)");
+    vignette.addColorStop(1, "rgba(0,0,0,0.55)");
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, pxWidth, pxHeight);
+  }
+
+  /** Build (once) a 1x3px repeating pattern: two clear rows then a dark line. */
+  private getScanlinePattern(): CanvasPattern | null {
+    if (this.scanlinePattern) return this.scanlinePattern;
+    const tile = document.createElement("canvas");
+    tile.width = 1;
+    tile.height = 3;
+    const tctx = tile.getContext("2d");
+    if (!tctx) return null;
+    tctx.fillStyle = "rgba(0,0,0,0.35)";
+    tctx.fillRect(0, 2, 1, 1);
+    this.scanlinePattern = this.displayCtx.createPattern(tile, "repeat");
+    return this.scanlinePattern;
   }
 
   /** (Re)allocate the offscreen layers when the display size changes. */

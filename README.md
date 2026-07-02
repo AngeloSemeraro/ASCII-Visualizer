@@ -43,10 +43,21 @@ Then open the printed URL and click **Start** to grant camera access.
 
 ## Controls
 
-The UI is intentionally minimal: **Start / Stop**, a **camera selector**, and
-**Save PNG**. Everything else (resolution, charset, color mode, contrast,
-brightness, mirror, and the motion trail) is baked into a tuned default look and
-can still be overridden programmatically or via `data-*` attributes.
+The core UI is minimal — **Start / Stop**, a **camera selector**, and
+**Save PNG** — plus a row of togglable **filter chips** (see [Filters](#filters)).
+Everything else (resolution, charset, color mode, contrast, brightness, mirror,
+auto-exposure, and the motion trail) is baked into a tuned default look and can
+still be overridden programmatically or via `data-*` attributes.
+
+## Filters
+
+Togglable, stackable effect chips:
+
+- **🎨 Palette** — cycles duotone themes: Midnight, Matrix, Amber, Cyber, Sepia, Ice.
+- **Ghost** — motion-only rendering via frame-differencing; still areas vanish and
+  only movement lights up (mesmerising with the trail). Tune with `ghostThreshold`.
+- **CRT** — scanlines + vignette for a retro-monitor look.
+- **Rainbow** — animates the glyph color through the hue wheel over time.
 
 ### Default look
 
@@ -161,6 +172,9 @@ window.AsciiVisualizer.createVisualizer(document.getElementById("host"), {
 | `data-mirror`     | Mirror horizontally                           |
 | `data-autoexposure` | Adapt exposure to lighting (`true`/`false`) |
 | `data-exposuretarget` | Target mean brightness (0..255)           |
+| `data-rainbow`    | Rainbow hue-cycle filter (`true`/`false`)     |
+| `data-ghost`      | Motion-only ghost filter (`true`/`false`)     |
+| `data-crt`        | CRT scanline + vignette filter (`true`/`false`) |
 | `data-trail`      | Long-exposure persistence (0..1, 0 = off)     |
 | `data-trailblur`  | Trail blur radius (CSS px)                     |
 | `data-trailsharp` | Crisp overlay opacity (0..1)                  |

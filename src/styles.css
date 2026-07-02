@@ -150,6 +150,28 @@
   width: 160px;
 }
 
+.asciiv-filters {
+  gap: 8px;
+}
+
+.asciiv-chip {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Filter chips light up with the accent color when active (not the danger red
+   used by the Stop button). */
+.asciiv-chip.asciiv-btn-active {
+  background: var(--asciiv-accent);
+  border-color: var(--asciiv-accent-2);
+  color: #fff;
+}
+
+.asciiv-chip.asciiv-btn-active:hover {
+  background: var(--asciiv-accent-2);
+}
+
 .asciiv-status {
   min-height: 1.2em;
   font-size: 12px;

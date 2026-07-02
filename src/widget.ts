@@ -113,6 +113,9 @@ export function optionsFromDataset(dataset: DOMStringMap): WidgetOptions {
   if (dataset.mirror != null) opts.mirror = parseBool(dataset.mirror, true);
   if (dataset.autoexposure != null) opts.autoExposure = parseBool(dataset.autoexposure, true);
   if (dataset.exposuretarget != null) opts.exposureTarget = parseNumber(dataset.exposuretarget, 120);
+  if (dataset.rainbow != null) opts.rainbow = parseBool(dataset.rainbow, false);
+  if (dataset.ghost != null) opts.ghost = parseBool(dataset.ghost, false);
+  if (dataset.crt != null) opts.crt = parseBool(dataset.crt, false);
   if (dataset.trail != null) opts.trail = parseNumber(dataset.trail, 0.94);
   if (dataset.trailblur != null) opts.trailBlur = parseNumber(dataset.trailblur, 2.5);
   if (dataset.trailsharp != null) opts.trailSharp = parseNumber(dataset.trailsharp, 0.35);
