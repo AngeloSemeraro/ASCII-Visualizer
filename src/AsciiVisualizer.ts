@@ -9,13 +9,13 @@
 
 import {
   resolveCharset,
-  luma,
-  adjust,
   charForLuma,
   rowsForColumns,
   imageDataToText,
   phraseUnit,
   phraseCharForLuma,
+  pixelValue,
+  meanAdjustedLuma,
   type CharsetName,
 } from "./ascii";
 
@@ -38,6 +38,10 @@ export interface AsciiVisualizerOptions {
   brightness?: number;
   /** Invert luminance (light <-> dark). */
   invert?: boolean;
+  /** Auto-exposure: continuously adapt a gain so the render stays well-lit. */
+  autoExposure?: boolean;
+  /** Target mean on-screen brightness (0..255) the auto-exposure aims for. */
+  exposureTarget?: number;
   /** Mirror the image horizontally (selfie view). */
   mirror?: boolean;
   /** Long-exposure persistence, 0..1. 0 = off; higher = light lingers far longer. */
@@ -71,6 +75,8 @@ const DEFAULTS: Required<
   contrast: 1.35,
   brightness: -46,
   invert: false,
+  autoExposure: true,
+  exposureTarget: 120,
   mirror: true,
   trail: 0.94,
   trailBlur: 2.5,
@@ -113,6 +119,7 @@ export class AsciiVisualizer {
   private mounted = false;
   private resizeObserver: ResizeObserver | null = null;
   private lastText = "";
+  private exposureGain = 1;
 
   constructor(container: HTMLElement, options: AsciiVisualizerOptions = {}) {
     this.container = container;
@@ -195,6 +202,7 @@ export class AsciiVisualizer {
     }
 
     this.running = true;
+    this.exposureGain = 1;
     this.clearTrail();
     this.opts.onStateChange?.(true);
     this.loop();
@@ -305,12 +313,17 @@ export class AsciiVisualizer {
     const image = this.samplerCtx.getImageData(0, 0, columns, rows);
     const charset = resolveCharset(this.opts.charset);
 
-    // 2) Cache the plain-text representation for getText()/copy.
+    // 2) Auto-exposure: nudge the gain so the mean rendered brightness drifts
+    //    toward the target, smoothed over frames to avoid flicker.
+    this.updateExposure(image);
+
+    // 3) Cache the plain-text representation for getText()/copy.
     this.lastText = imageDataToText(image, {
       charset,
       brightness: this.opts.brightness,
       contrast: this.opts.contrast,
       invert: this.opts.invert,
+      exposure: this.exposureGain,
       phrase: this.opts.phrase,
       phraseThreshold: this.opts.phraseThreshold,
     });
@@ -347,6 +360,7 @@ export class AsciiVisualizer {
 
     const unit = phraseUnit(this.opts.phrase);
     const threshold = this.opts.phraseThreshold;
+    const gain = this.exposureGain;
 
     const { width, height, data } = image;
     for (let y = 0; y < height && y < rows; y++) {
@@ -356,8 +370,7 @@ export class AsciiVisualizer {
         const r = data[i];
         const g = data[i + 1];
         const b = data[i + 2];
-        const l = luma(r, g, b);
-        const v = adjust(l, this.opts.brightness, this.opts.contrast, this.opts.invert);
+        const v = pixelValue(r, g, b, gain, this.opts.brightness, this.opts.contrast, this.opts.invert);
         const ch = unit
           ? phraseCharForLuma(v, unit, idx, threshold)
           : charForLuma(v, charset);
@@ -432,6 +445,30 @@ export class AsciiVisualizer {
     this.layerW = pxWidth;
     this.layerH = pxHeight;
     this.clearTrail();
+  }
+
+  /**
+   * Auto-exposure feedback loop. Measures the mean rendered brightness at the
+   * current gain, then eases the gain toward whatever would land it on the
+   * target. Runs once per frame; the easing keeps it smooth and flicker-free.
+   */
+  private updateExposure(image: ImageData): void {
+    if (!this.opts.autoExposure) {
+      this.exposureGain = 1;
+      return;
+    }
+    const mean = meanAdjustedLuma(
+      image,
+      this.exposureGain,
+      this.opts.brightness,
+      this.opts.contrast,
+      this.opts.invert
+    );
+    // Scale the current gain by how far the mean is from target, clamp to a
+    // sane range, then ease toward it.
+    const desired = this.exposureGain * (this.opts.exposureTarget / Math.max(mean, 1));
+    const clamped = Math.min(8, Math.max(0.2, desired));
+    this.exposureGain += (clamped - this.exposureGain) * 0.12;
   }
 
   /** Reset the trail buffer to the background color. */

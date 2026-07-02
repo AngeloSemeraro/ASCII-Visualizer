@@ -57,6 +57,7 @@ can still be overridden programmatically or via `data-*` attributes.
 | Color mode  | `mono`    |
 | Contrast    | `1.35`    |
 | Brightness  | `-46`     |
+| Auto-exposure | on (`target 120`) |
 | Mirror      | on        |
 | Trail       | `0.94`    |
 | Trail blur  | `2.5px`   |
@@ -80,6 +81,16 @@ Tune it with:
 - `trailSharp` (0..1) — opacity of the crisp current-frame overlay (default `0.35`; `0` = full dream).
 
 Set `trail: 0` to disable the effect and clear each frame.
+
+### Auto-exposure
+
+The render adapts to your lighting automatically. Each frame it measures the
+mean on-screen brightness and eases an exposure gain toward whatever lands it
+on a target, so the ASCII (and the phrase density) stays balanced whether the
+room is dim or bright. The easing keeps it smooth and flicker-free.
+
+- `autoExposure` (boolean) — enable/disable (default `true`).
+- `exposureTarget` (0..255) — target mean brightness (default `120`; higher = denser/brighter).
 
 ### Phrase mode
 
@@ -148,6 +159,8 @@ window.AsciiVisualizer.createVisualizer(document.getElementById("host"), {
 | `data-brightness` | Brightness offset                             |
 | `data-invert`     | Invert luminance                              |
 | `data-mirror`     | Mirror horizontally                           |
+| `data-autoexposure` | Adapt exposure to lighting (`true`/`false`) |
+| `data-exposuretarget` | Target mean brightness (0..255)           |
 | `data-trail`      | Long-exposure persistence (0..1, 0 = off)     |
 | `data-trailblur`  | Trail blur radius (CSS px)                     |
 | `data-trailsharp` | Crisp overlay opacity (0..1)                  |

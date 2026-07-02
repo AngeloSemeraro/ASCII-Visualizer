@@ -120,11 +120,53 @@ export function phraseCharForLuma(
   return ch === " " ? " " : ch;
 }
 
+/**
+ * The full per-pixel transform used everywhere (display, text, exposure stats)
+ * so they never drift apart: apply exposure gain to the raw luminance, clamp,
+ * then apply brightness/contrast/invert. Returns 0..255.
+ */
+export function pixelValue(
+  r: number,
+  g: number,
+  b: number,
+  exposure: number,
+  brightness: number,
+  contrast: number,
+  invert: boolean
+): number {
+  let l = luma(r, g, b) * exposure;
+  if (l > 255) l = 255;
+  return adjust(l, brightness, contrast, invert);
+}
+
+/**
+ * Mean of the fully-adjusted luminance across the image. Used by the
+ * auto-exposure loop to steer the gain toward a target on-screen brightness.
+ */
+export function meanAdjustedLuma(
+  image: ImageData,
+  exposure: number,
+  brightness: number,
+  contrast: number,
+  invert: boolean
+): number {
+  const { data } = image;
+  let sum = 0;
+  let n = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    sum += pixelValue(data[i], data[i + 1], data[i + 2], exposure, brightness, contrast, invert);
+    n++;
+  }
+  return n ? sum / n : 0;
+}
+
 export interface ImageToTextOptions {
   charset?: string;
   brightness?: number;
   contrast?: number;
   invert?: boolean;
+  /** Exposure gain multiplier applied to luminance before brightness/contrast. */
+  exposure?: number;
   /** When set, render the image out of this repeating sentence instead of the ramp. */
   phrase?: string;
   /** Brightness threshold (0..1) a cell must clear to show a phrase letter. */
@@ -141,6 +183,7 @@ export function imageDataToText(image: ImageData, opts: ImageToTextOptions = {})
   const brightness = opts.brightness ?? 0;
   const contrast = opts.contrast ?? 1;
   const invert = opts.invert ?? false;
+  const exposure = opts.exposure ?? 1;
   const unit = phraseUnit(opts.phrase);
   const threshold = opts.phraseThreshold ?? 1 / 3;
 
@@ -152,8 +195,7 @@ export function imageDataToText(image: ImageData, opts: ImageToTextOptions = {})
     for (let x = 0; x < width; x++) {
       const idx = y * width + x;
       const i = idx * 4;
-      const l = luma(data[i], data[i + 1], data[i + 2]);
-      const v = adjust(l, brightness, contrast, invert);
+      const v = pixelValue(data[i], data[i + 1], data[i + 2], exposure, brightness, contrast, invert);
       line += unit
         ? phraseCharForLuma(v, unit, idx, threshold)
         : charForLuma(v, charset);
